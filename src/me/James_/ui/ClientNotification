@@ -1,0 +1,108 @@
+package me.James_.ui;
+
+import org.lwjgl.opengl.GL11;
+
+import me.James_.Client;
+import me.James_.util.ClientUtil;
+import me.James_.util.FlatColors;
+import me.James_.util.RenderUtil;
+import me.James_.util.timeUtils.TimeHelper;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.renderer.OpenGlHelper;
+import net.minecraft.util.ResourceLocation;
+
+public class ClientNotification {
+	
+	private String message;
+	private TimeHelper timer;
+	private double lastY, posY, width, height, animationX;
+	private int color, imageWidth;
+	private ResourceLocation image;
+	private long stayTime;
+
+	public ClientNotification(final String message, Type type) {
+		this.message = message;
+		timer = new TimeHelper();
+		timer.reset();
+		width = Client.instance.fontMgr.asu14.getStringWidth(message) + 35;
+		height = 20;
+		animationX = width;
+		stayTime = 3000;
+		imageWidth = 13;
+		posY = -1;
+		image = new ResourceLocation("J/notification/" + type.name().toLowerCase() + ".png");
+		if (type.equals(Type.INFO))
+			this.color = ClientUtil.reAlpha(FlatColors.BLUE.c, 0.5F);
+		else if (type.equals(Type.ERROR))
+			 this.color = ClientUtil.reAlpha(FlatColors.BLACK.c, 0.5F);
+		else if (type.equals(Type.SUCCESS))
+			 this.color = ClientUtil.reAlpha(FlatColors.BLACK.c, 0.5F);
+		else if (type.equals(Type.WARNING))
+			 this.color = ClientUtil.reAlpha(FlatColors.YELLOW.c, 0.5F);
+	}
+
+	public void draw(double getY, double lastY) {
+		this.lastY = lastY;
+		animationX = this.getAnimationState(animationX, isFinished() ? width : 0, Math.max(isFinished() ? 200 : 30, Math.abs(animationX - (isFinished() ? width : 0)) * 5));
+		if(posY == -1)
+			posY = getY;
+		else
+			posY = this.getAnimationState(posY, getY, 200);
+		ScaledResolution res = new ScaledResolution(Minecraft.getMinecraft());
+		int x1 = (int) (res.getScaledWidth() - width + animationX), x2 = (int) (res.getScaledWidth() + animationX), y1 = (int) posY, y2 = (int) (y1 + height);
+		RenderUtil.drawRect(x1, y1, x2, y2, color);
+		RenderUtil.drawRect(x1, y2, x2, y2 + 0.5F, color);
+		RenderUtil.drawRect(x1, y2, x2, y2 + 0.5F, ClientUtil.reAlpha(1, 0.5F));
+		RenderUtil.drawRect(x1, y1, (int) (x1 + height), y2, ClientUtil.reAlpha(-1, 0.1F));
+		this.drawImage(image, (int)(x1 + (height - imageWidth) / 2F), y1 + (int)((height - imageWidth) / 2F), imageWidth, imageWidth);
+		Client.instance.fontMgr.asu16.drawCenteredString(message, (float)(x1 + width / 2F) + 10, (float)(y1 + height / 3F), -1);
+	}
+	
+	public boolean shouldDelete() {
+		return isFinished() && animationX >= width;
+	}
+
+	private boolean isFinished() {
+		return timer.isDelayComplete(stayTime) && posY == lastY;
+	}
+	
+	public double getHeight() {
+		return height;
+	}
+
+	public enum Type {
+		SUCCESS, INFO, WARNING, ERROR
+	}
+	
+	public double getAnimationState(double animation, double finalState, double speed) {
+		float add = (float) (0.01 * speed);
+		if (animation < finalState) {
+			if (animation + add < finalState)
+				animation += add;
+			else
+				animation = finalState;
+		} else {
+			if (animation - add > finalState)
+				animation -= add;
+			else
+				animation = finalState;
+		}
+		return animation;
+	}
+	
+	public void drawImage(ResourceLocation image, int x, int y, int width, int height) {
+		ScaledResolution scaledResolution = new ScaledResolution(Minecraft.getMinecraft());
+		GL11.glDisable(GL11.GL_DEPTH_TEST);
+		GL11.glEnable(GL11.GL_BLEND);
+		GL11.glDepthMask(false);
+		OpenGlHelper.glBlendFunc(770, 771, 1, 0);
+		GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+		Minecraft.getMinecraft().getTextureManager().bindTexture(image);
+		Gui.drawModalRectWithCustomSizedTexture(x, y, 0, 0, width, height, width, height);
+		GL11.glDepthMask(true);
+		GL11.glDisable(GL11.GL_BLEND);
+		GL11.glEnable(GL11.GL_DEPTH_TEST);
+	}
+}
